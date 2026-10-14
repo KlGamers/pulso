@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,13 +24,15 @@ func main() {
 	path := flag.String("c", "pulso.json", "config file")
 	flag.Parse()
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	if err := run(*path, log); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := run(ctx, *path, log, nil); err != nil {
 		log.Error("fatal", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(path string, log *slog.Logger) error {
+func run(ctx context.Context, path string, log *slog.Logger, ready chan<- string) error {
 	c, err := cfg.Load(path)
 	if err != nil {
 		return err
@@ -40,7 +43,7 @@ func run(path string, log *slog.Logger) error {
 	}
 	defer st.Close()
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := context.WithCancel(ctx)
 	defer stop()
 
 	var ntf *alert.Notifier
@@ -48,8 +51,11 @@ func run(path string, log *slog.Logger) error {
 		ntf = alert.NewNotifier(c.Alert.URL, c.Alert.Retries)
 	}
 
+	ln, err := net.Listen("tcp", c.Listen)
+	if err != nil {
+		return err
+	}
 	srv := &http.Server{
-		Addr:              c.Listen,
 		Handler:           web.New(c, st).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -63,8 +69,11 @@ func run(path string, log *slog.Logger) error {
 
 	errc := make(chan error, 1)
 	go func() {
-		log.Info("listening", "addr", c.Listen, "targets", len(c.Targets))
-		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+		log.Info("listening", "addr", ln.Addr().String(), "targets", len(c.Targets))
+		if ready != nil {
+			ready <- ln.Addr().String()
+		}
+		if err := srv.Serve(ln); !errors.Is(err, http.ErrServerClosed) {
 			errc <- err
 		}
 	}()
