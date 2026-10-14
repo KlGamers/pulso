@@ -2,19 +2,21 @@
 
 [![ci](https://github.com/KlGamers/pulso/actions/workflows/ci.yml/badge.svg)](https://github.com/KlGamers/pulso/actions/workflows/ci.yml)
 
-A self-hosted uptime monitor that ships as one binary. It probes HTTP and TCP
-endpoints on a schedule, keeps the history in SQLite, posts to a webhook when a
-service goes down or comes back, and serves a status page.
+Monitor de disponibilidad autohospedado que se distribuye como un solo binario.
+Revisa servicios HTTP y TCP cada cierto tiempo, guarda el historial en SQLite,
+avisa por webhook cuando algo se cae o se recupera y sirve una página de
+estado.
 
-![Status page](docs/status-dark.png)
+![Página de estado](docs/status-dark.png)
 
-## Why
+## Por qué
 
-Hosted monitors bill per check and want an account for every teammate. The
-self-hosted ones usually need a database server and a queue. pulso needs a JSON
-file and a place to write one SQLite file.
+Los monitores en la nube cobran por cada revisión y piden una cuenta por
+persona del equipo. Los autohospedados suelen necesitar un servidor de base de
+datos y una cola. pulso necesita un archivo JSON y un lugar donde escribir un
+archivo SQLite.
 
-## Quick start
+## Inicio rápido
 
 ```sh
 go install github.com/KlGamers/pulso/cmd/pulso@latest
@@ -22,16 +24,16 @@ cp pulso.example.json pulso.json
 pulso -c pulso.json
 ```
 
-Open http://localhost:8080.
+Abre http://localhost:8080.
 
-With Docker:
+Con Docker:
 
 ```sh
 docker build -t pulso .
 docker run -p 8080:8080 -v "$PWD:/data" pulso
 ```
 
-## Configuration
+## Configuración
 
 ```json
 {
@@ -49,47 +51,48 @@ docker run -p 8080:8080 -v "$PWD:/data" pulso
 }
 ```
 
-| Field | Default | Meaning |
+| Campo | Por defecto | Qué hace |
 |---|---|---|
-| `listen` | `:8080` | Address for the status page and API |
-| `db` | `pulso.db` | SQLite file |
-| `keep` | `720h` | How long check history is kept |
-| `workers` | `8` | Maximum probes running at once |
-| `alert.url` | none | Webhook that receives state changes |
-| `alert.fail_after` | `3` | Consecutive failures before a target is down |
-| `alert.recover_after` | `2` | Consecutive successes before it is up again |
-| `targets[].kind` | `http` | `http` or `tcp` |
-| `targets[].every` | `30s` | Probe interval |
-| `targets[].timeout` | `5s` | Probe timeout, must not exceed `every` |
-| `targets[].expect` | any 2xx or 3xx | Exact status code required |
-| `targets[].match` | none | Substring the response body must contain |
+| `listen` | `:8080` | Dirección de la página de estado y la API |
+| `db` | `pulso.db` | Archivo SQLite |
+| `keep` | `720h` | Cuánto tiempo se conserva el historial |
+| `workers` | `8` | Máximo de revisiones en paralelo |
+| `alert.url` | ninguno | Webhook que recibe los cambios de estado |
+| `alert.fail_after` | `3` | Fallos seguidos antes de marcar un servicio como caído |
+| `alert.recover_after` | `2` | Éxitos seguidos antes de marcarlo como recuperado |
+| `targets[].kind` | `http` | `http` o `tcp` |
+| `targets[].every` | `30s` | Intervalo entre revisiones |
+| `targets[].timeout` | `5s` | Tiempo límite de cada revisión. No puede superar `every` |
+| `targets[].expect` | cualquier 2xx o 3xx | Código de estado exacto que se exige |
+| `targets[].match` | ninguno | Texto que debe aparecer en la respuesta |
 
-The config is validated at startup. A bad file stops the process with the name
-of the offending target.
+La configuración se valida al arrancar. Un archivo inválido detiene el proceso
+indicando qué servicio tiene el problema.
 
-## Alerts
+## Alertas
 
-A target flips to down only after `fail_after` failures in a row, and back to
-up after `recover_after` successes, so one dropped packet does not page anyone.
-Each flip posts once:
+Un servicio pasa a caído solo después de `fail_after` fallos seguidos, y vuelve
+a estar arriba tras `recover_after` éxitos, así que un paquete perdido no
+despierta a nadie. Cada cambio se notifica una vez:
 
 ```json
 { "kind": "down", "target": "api", "at": "2026-01-10T08:15:04Z", "reason": "status 502", "fails": 3 }
 ```
 
-Failed deliveries are retried with exponential backoff. Open incidents survive
-a restart, so a service that was already down is not announced twice.
+Los envíos fallidos se reintentan con espera exponencial. Los incidentes
+abiertos sobreviven a un reinicio, así que un servicio que ya estaba caído no
+se anuncia dos veces.
 
 ## API
 
-| Route | Returns |
+| Ruta | Devuelve |
 |---|---|
-| `GET /api/targets` | State, last check, 24h and 7d uptime, average and p95 latency |
-| `GET /api/targets/{name}/checks?n=100` | Most recent checks, oldest first |
-| `GET /api/incidents` | Last 50 incidents |
+| `GET /api/targets` | Estado, última revisión, disponibilidad de 24 h y 7 días, latencia promedio y p95 |
+| `GET /api/targets/{name}/checks?n=100` | Revisiones más recientes, de la más vieja a la más nueva |
+| `GET /api/incidents` | Últimos 50 incidentes |
 | `GET /healthz` | `ok` |
 
-## How it works
+## Cómo funciona
 
 ```
 cfg ──> sched ──> probe ──> store (SQLite, WAL)
@@ -99,18 +102,18 @@ cfg ──> sched ──> probe ──> store (SQLite, WAL)
 web  <─────────────────────────┘
 ```
 
-- `sched` starts one goroutine per target. Each waits a deterministic jitter
-  derived from the target name, then ticks at its own interval. A semaphore
-  caps concurrent probes at `workers`.
-- `probe` reuses one HTTP transport, bounds every request with a context
-  deadline and reads at most 1 MiB of body.
-- `alert` is a small state machine per target. It is the only place that
-  decides whether a result is an incident.
-- `store` uses the pure Go SQLite driver, so the binary has no C dependency
-  and cross-compiles with `CGO_ENABLED=0`.
-- `web` renders one embedded template and exposes the same data as JSON.
+- `sched` lanza una goroutine por servicio. Cada una espera un desfase fijo
+  derivado del nombre del servicio y luego revisa a su propio ritmo. Un
+  semáforo limita las revisiones simultáneas a `workers`.
+- `probe` reutiliza un solo transporte HTTP, limita cada petición con un
+  contexto con fecha límite y lee como máximo 1 MiB de respuesta.
+- `alert` es una pequeña máquina de estados por servicio. Es el único lugar
+  que decide si un resultado es un incidente.
+- `store` usa el driver de SQLite escrito en Go puro, así que el binario no
+  depende de C y se compila para otras plataformas con `CGO_ENABLED=0`.
+- `web` genera una sola plantilla embebida y expone los mismos datos en JSON.
 
-## Development
+## Desarrollo
 
 ```sh
 make test
@@ -118,17 +121,17 @@ make lint
 make build
 ```
 
-Tests run against `httptest` servers and temporary databases. Nothing touches
-the network.
+Las pruebas corren contra servidores `httptest` y bases de datos temporales.
+Nada sale a la red.
 
-## Limits
+## Límites
 
-- One process, one SQLite file. There is no clustering and no multi-region
-  probing.
-- HTTP probes send `GET` only.
-- The status page has no authentication. Put it behind your proxy if it should
-  not be public.
+- Un proceso, un archivo SQLite. No hay clúster ni revisiones desde varias
+  regiones.
+- Las revisiones HTTP solo usan `GET`.
+- La página de estado no tiene autenticación. Ponla detrás de tu proxy si no
+  debe ser pública.
 
-## License
+## Licencia
 
 MIT
