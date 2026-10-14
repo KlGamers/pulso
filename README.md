@@ -106,7 +106,9 @@ web  <────────────────────────�
   derivado del nombre del servicio y luego revisa a su propio ritmo. Un
   semáforo limita las revisiones simultáneas a `workers`.
 - `probe` reutiliza un solo transporte HTTP, limita cada petición con un
-  contexto con fecha límite y lee como máximo 1 MiB de respuesta.
+  contexto con fecha límite y lee como máximo 1 MiB de respuesta. Un servicio
+  atrapado en un ciclo de redirecciones se marca como caído después de cinco
+  saltos.
 - `alert` es una pequeña máquina de estados por servicio. Es el único lugar
   que decide si un resultado es un incidente.
 - `store` usa el driver de SQLite escrito en Go puro, así que el binario no
@@ -122,7 +124,7 @@ make build
 ```
 
 Las pruebas corren contra servidores `httptest` y bases de datos temporales.
-Nada sale a la red.
+Nada sale a la red. La cobertura es de 94% y el CI falla si baja de 90%.
 
 ## Límites
 
