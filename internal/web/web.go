@@ -20,7 +20,6 @@ var page string
 var tpl = template.Must(template.New("page").Funcs(template.FuncMap{
 	"ms":  ms,
 	"pct": func(v float64) string { return strconv.FormatFloat(v, 'f', 2, 64) },
-	"ago": ago,
 	"dur": span,
 }).Parse(page))
 
@@ -183,8 +182,6 @@ func ms(v float64) string {
 	}
 	return strconv.FormatFloat(v, 'f', 0, 64)
 }
-
-func ago(t time.Time) string { return span(time.Since(t)) + " ago" }
 
 func span(d time.Duration) string {
 	switch {

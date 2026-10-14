@@ -85,3 +85,26 @@ func TestNotifierGivesUp(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestNotifierCancelAndBadURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+	n := NewNotifier(srv.URL, 5)
+	n.SetWait(time.Hour)
+	ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer stop()
+	t0 := time.Now()
+	if err := n.Send(ctx, Event{Kind: Down}); err == nil || time.Since(t0) > 2*time.Second {
+		t.Fatalf("cancel during backoff: %v after %s", err, time.Since(t0))
+	}
+	bad := NewNotifier("http://[::1]:namedport", 1)
+	if err := bad.Send(context.Background(), Event{}); err == nil {
+		t.Fatal("want error for bad url")
+	}
+	dead := NewNotifier("http://127.0.0.1:1", 1)
+	if err := dead.Send(context.Background(), Event{}); err == nil {
+		t.Fatal("want error for refused connection")
+	}
+}

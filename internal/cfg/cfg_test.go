@@ -1,6 +1,8 @@
 package cfg
 
 import (
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -47,5 +49,32 @@ func TestParseRejects(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: got %v", want, err)
 		}
+	}
+}
+
+func TestLoadAndJSON(t *testing.T) {
+	dir := t.TempDir()
+	p := dir + "/c.json"
+	if _, err := Load(p); err == nil {
+		t.Fatal("want error for missing file")
+	}
+	if err := os.WriteFile(p, []byte(`{"targets":[{"name":"a","addr":"http://x.io"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(p)
+	if err != nil || c.Targets[0].Name != "a" {
+		t.Fatalf("%v %+v", err, c)
+	}
+	raw, err := json.Marshal(Dur(90 * time.Second))
+	if err != nil || string(raw) != `"1m30s"` {
+		t.Fatalf("%s %v", raw, err)
+	}
+	for _, bad := range []string{`{"keep":5,"targets":[]}`, `{"keep":"soon","targets":[]}`} {
+		if _, err := Parse([]byte(bad)); err == nil {
+			t.Errorf("want error for %s", bad)
+		}
+	}
+	if _, err := Parse([]byte(`{"targets":[{"name":"a","kind":"tcp","addr":""}]}`)); err == nil || !strings.Contains(err.Error(), "empty tcp addr") {
+		t.Fatalf("got %v", err)
 	}
 }

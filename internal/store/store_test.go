@@ -98,3 +98,40 @@ func TestPrune(t *testing.T) {
 		t.Fatalf("prune: %v %d", err, n)
 	}
 }
+
+func TestErrorsAfterClose(t *testing.T) {
+	if _, err := Open("/nonexistent/dir/x.db"); err == nil {
+		t.Fatal("want error opening in a missing dir")
+	}
+	st, err := Open(filepath.Join(t.TempDir(), "t.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Close()
+	ctx := context.Background()
+	now := time.Now()
+	if err := st.Add(ctx, probe.Res{Target: "a", At: now}); err == nil {
+		t.Error("add")
+	}
+	if _, err := st.Recent(ctx, "a", 1); err == nil {
+		t.Error("recent")
+	}
+	if _, err := st.Stats(ctx, "a", now); err == nil {
+		t.Error("stats")
+	}
+	if _, err := st.Incidents(ctx, 1); err == nil {
+		t.Error("incidents")
+	}
+	if _, err := st.Prune(ctx, now); err == nil {
+		t.Error("prune")
+	}
+	if _, err := st.Down(ctx, "a"); err == nil {
+		t.Error("down")
+	}
+}
+
+func TestPctSingle(t *testing.T) {
+	if Pct([]float64{7}, 0) != 7 {
+		t.Fatal("p0 of one value")
+	}
+}

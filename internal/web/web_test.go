@@ -82,3 +82,35 @@ func TestSpan(t *testing.T) {
 		}
 	}
 }
+
+func TestStoreFailuresReturn500(t *testing.T) {
+	h, st := setup(t)
+	st.Close()
+	for _, p := range []string{"/", "/api/targets", "/api/targets/api/checks", "/api/incidents"} {
+		w := get(h, p)
+		if w.Code != http.StatusInternalServerError {
+			t.Errorf("%s: got %d", p, w.Code)
+		}
+		if p != "/" && !strings.Contains(w.Body.String(), `"error"`) {
+			t.Errorf("%s: body %q", p, w.Body.String())
+		}
+	}
+}
+
+func TestAllUpAndFormatting(t *testing.T) {
+	h, st := setup(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	st.Add(ctx, probe.Res{Target: "api", At: now, Up: true, Ms: 3.42, Code: 200})
+	st.Add(ctx, probe.Res{Target: "db", At: now, Up: true, Ms: 0.4})
+	body := get(h, "/").Body.String()
+	if !strings.Contains(body, "All systems operational") || !strings.Contains(body, "<b>3.4</b> ms avg") {
+		t.Fatal("all-up page")
+	}
+	if got := get(h, "/api/targets/api/checks?n=5000").Code; got != 200 {
+		t.Fatal(got)
+	}
+	if ms(0) != "0" || ms(12.6) != "13" || ms(3.42) != "3.4" {
+		t.Fatal("ms format")
+	}
+}
