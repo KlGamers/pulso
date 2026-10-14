@@ -39,7 +39,7 @@ func New() *Prober {
 		Transport: tr,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 5 {
-				return http.ErrUseLastResponse
+				return fmt.Errorf("stopped after %d redirects", len(via))
 			}
 			return nil
 		},

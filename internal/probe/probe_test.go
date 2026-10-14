@@ -86,3 +86,31 @@ func TestTCP(t *testing.T) {
 		t.Fatalf("closed port: %+v", r)
 	}
 }
+
+func TestRedirectLimitAndErrors(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/loop" {
+			http.Redirect(w, r, srv.URL+"/loop", http.StatusFound)
+			return
+		}
+		if r.URL.Path == "/hop" {
+			http.Redirect(w, r, srv.URL+"/ok", http.StatusFound)
+			return
+		}
+	}))
+	defer srv.Close()
+	p := New()
+	if r := p.Run(context.Background(), target(srv.URL+"/hop")); !r.Up || r.Code != 200 {
+		t.Fatalf("redirect: %+v", r)
+	}
+	if r := p.Run(context.Background(), target(srv.URL+"/loop")); r.Up || !strings.Contains(r.Err, "stopped after 5 redirects") {
+		t.Fatalf("loop: %+v", r)
+	}
+	if r := p.Run(context.Background(), target("http://[::1]:namedport")); r.Up || r.Err == "" {
+		t.Fatalf("bad url: %+v", r)
+	}
+	if got := trim(strings.Repeat("x", 500)); len(got) != 200 {
+		t.Fatalf("trim: %d", len(got))
+	}
+}
