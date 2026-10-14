@@ -1,0 +1,18 @@
+{
+  "listen": ":8080",
+  "db": "pulso.db",
+  "title": "Acme Status",
+  "keep": "720h",
+  "workers": 8,
+  "alert": {
+    "url": "https://hooks.example.com/pulso",
+    "fail_after": 3,
+    "recover_after": 2,
+    "retries": 3
+  },
+  "targets": [
+    { "name": "website", "addr": "https://example.com", "every": "30s", "timeout": "5s" },
+    { "name": "api", "addr": "https://api.example.com/health", "every": "15s", "expect": 200, "match": "\"ok\"" },
+    { "name": "postgres", "kind": "tcp", "addr": "db.internal:5432", "every": "30s", "timeout": "3s" }
+  ]
+}
