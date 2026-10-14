@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="30">
+<title>{{.Title}}</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--line:#e3e6ea;--ink:#16191d;--mute:#667080;--up:#1a9f53;--down:#d63b3b;--warn:#c98a00;--idle:#c5cad3}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1116;--card:#161a21;--line:#262c36;--ink:#e8ebf0;--mute:#8b94a3;--up:#3ecf7a;--down:#f06464;--warn:#e5b13a;--idle:#3a414d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:40px 20px 64px}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin:36px 0 10px}
+.sum{display:flex;align-items:center;gap:10px;padding:14px 18px;border-radius:10px;background:var(--card);border:1px solid var(--line);margin-top:20px;font-weight:600}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--idle);flex:none}
+.up{background:var(--up)}.down{background:var(--down)}.degraded{background:var(--warn)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:10px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.name{font-weight:600}
+.tag{font:11px ui-monospace,Menlo,monospace;color:var(--mute);border:1px solid var(--line);border-radius:20px;padding:1px 8px}
+.nums{margin-left:auto;display:flex;gap:18px;color:var(--mute);font-size:13px;font-variant-numeric:tabular-nums}
+.nums b{color:var(--ink);font-weight:600}
+.bars{display:flex;gap:2px;margin-top:12px;height:26px}
+.bars i{flex:1;border-radius:2px;background:var(--idle)}
+.bars i.ok{background:var(--up)}.bars i.ko{background:var(--down)}
+.err{margin-top:8px;color:var(--down);font:12px ui-monospace,Menlo,monospace;overflow-wrap:anywhere}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:8px 0;border-top:1px solid var(--line);vertical-align:top}
+td:last-child{text-align:right;color:var(--mute);white-space:nowrap}
+.mute{color:var(--mute)}
+footer{margin-top:40px;color:var(--mute);font-size:12px}
+</style>
+</head>
+<body>
+<main>
+<h1>{{.Title}}</h1>
+<div class="mute">Updated {{.Now.Format "2006-01-02 15:04:05"}} UTC</div>
+<div class="sum"><span class="dot {{if .AllUp}}up{{else}}down{{end}}"></span>{{if .AllUp}}All systems operational{{else}}Some systems are having trouble{{end}}</div>
+<h2>Services</h2>
+{{range .Rows}}
+<div class="card">
+  <div class="top">
+    <span class="dot {{.State}}"></span><span class="name">{{.Name}}</span><span class="tag">{{.Kind}}</span>
+    <div class="nums">
+      <span><b>{{pct .Day.Uptime}}%</b> 24h</span>
+      <span><b>{{pct .Week.Uptime}}%</b> 7d</span>
+      <span><b>{{ms .Day.Avg}}</b> ms avg</span>
+      <span><b>{{ms .Day.P95}}</b> ms p95</span>
+    </div>
+  </div>
+  <div class="bars">{{range .Recent}}<i class="{{if .Up}}ok{{else}}ko{{end}}" title="{{.At.Format "15:04:05"}} · {{ms .Ms}} ms"></i>{{else}}<i></i>{{end}}</div>
+  {{if .Last}}{{if not .Last.Up}}<div class="err">{{.Last.Err}}</div>{{end}}{{end}}
+</div>
+{{end}}
+<h2>Incidents</h2>
+{{if .Incidents}}
+<table>
+{{range .Incidents}}
+<tr><td><b>{{.Target}}</b><div class="mute">{{.Reason}}</div></td><td>{{.Start.Format "Jan 2 15:04"}}<div>{{if .Stop}}resolved after {{dur (.Stop.Sub .Start)}}{{else}}ongoing{{end}}</div></td></tr>
+{{end}}
+</table>
+{{else}}<div class="mute">No incidents recorded.</div>{{end}}
+<footer>pulso</footer>
+</main>
+</body>
+</html>
